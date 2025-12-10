@@ -1,6 +1,8 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    // Plugin de servicios de Google necesario para Firebase
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -73,8 +75,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
     implementation("androidx.compose.material:material-icons-extended")
 
-    // Testing dependencies
+    // Testing dependencies (unit tests)
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     androidTestImplementation(platform("androidx.compose:compose-bom:2023.10.01"))
@@ -83,4 +86,13 @@ dependencies {
     // Debug dependencies
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    // Firebase (usando BOM para manejar versiones)
+    implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
+    // Autenticación con email/contraseña
+    implementation("com.google.firebase:firebase-auth-ktx")
+    // Firestore para guardar perfil de usuario (team, etc.)
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    // Extensiones de corrutinas para Tasks de Firebase (await())
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 }

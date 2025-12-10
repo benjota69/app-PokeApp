@@ -37,7 +37,8 @@ class PokemonListViewModel(
         _estado.value = EstadoListaPokemon(cargando = true) // Indica que estamos cargando
         viewModelScope.launch {
             try {
-                val lista = repositorio.obtenerListaPokemon(100)
+                // Cargamos una cantidad moderada de pokémon para mantener buena velocidad
+                val lista = repositorio.obtenerListaPokemon()
                 _estado.value = EstadoListaPokemon(cargando = false, pokemones = lista) // Actualiza el estado con la lista
             } catch (t: Throwable) { // Error al cargar
                 _estado.value = EstadoListaPokemon(cargando = false, error = t.message ?: "Error")

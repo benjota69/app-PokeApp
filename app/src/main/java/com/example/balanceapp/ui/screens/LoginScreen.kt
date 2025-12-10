@@ -7,10 +7,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,7 +35,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import com.example.balanceapp.data.CredencialesManager
+import androidx.compose.ui.graphics.Color
+import com.google.firebase.auth.FirebaseAuth
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +49,10 @@ fun LoginScreen(
     var clave by remember { mutableStateOf("") }
     var mostrarClave by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var cargando by remember { mutableStateOf(false) }
+
+    // Instancia de FirebaseAuth que usaremos para loguear al usuario
+    val auth = remember { FirebaseAuth.getInstance() }
 
     // validación básica de correo
     fun validarEmail(email: String): Boolean {
@@ -59,6 +66,7 @@ fun LoginScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
                 .padding(padding)
                 .padding(24.dp),
             verticalArrangement = Arrangement.Center,
@@ -112,27 +120,49 @@ fun LoginScreen(
             Spacer(Modifier.height(20.dp))
             // botón entrar
             Button(
-                // Aquí va toda la lógica de validación del login.
+                // Aquí va toda la lógica de validación del login con Firebase.
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = Color.White
+                ),
                 onClick = {
                     when {
                         email.isBlank() -> error = "El email es requerido"
                         !validarEmail(email) -> error = "El email no es válido"
                         clave.isBlank() -> error = "La contraseña es requerida"
-                        !CredencialesManager.existeEmail(email) -> error = "Este email no está registrado"
-                        !CredencialesManager.validarCredenciales(email, clave) -> error = "Email o contraseña incorrectos"
-                        else ->
-                            // Si todo está bien, llamamos a la función de éxito.
+                        else -> {
+                            cargando = true
+                            error = null
+                            // Llamada a Firebase Auth para iniciar sesión
+                            auth.signInWithEmailAndPassword(email, clave)
+                                .addOnCompleteListener { task ->
+                                    cargando = false
+                                    if (task.isSuccessful) {
+                                        // Login OK, llamamos a la función de éxito.
                             onLoginExitoso()
+                                    } else {
+                                        // Mostramos un mensaje de error amigable.
+                                        error = task.exception?.localizedMessage
+                                            ?: "No se pudo iniciar sesión. Revisa tus credenciales."
+                                    }
+                                }
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Entrar")
+                Text(if (cargando) "Entrando..." else "Entrar")
             }
 
             Spacer(Modifier.height(12.dp))
             // botón para ir al registro
-            TextButton(onClick = onIrARegistro) {
+            TextButton(
+                onClick = onIrARegistro,
+                // Usamos el color primario para que se vea bien en claro y oscuro
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
                 Text("¿No tienes cuenta? Regístrate")
             }
         }

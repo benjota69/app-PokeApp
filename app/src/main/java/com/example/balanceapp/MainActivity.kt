@@ -9,10 +9,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import com.example.balanceapp.ui.navigation.AppNavigation
 import com.example.balanceapp.ui.theme.BaseAndroidProjectTheme
+import com.google.firebase.FirebaseApp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Inicializa Firebase para poder usar Firebase Auth y otros servicios.
+        FirebaseApp.initializeApp(this)
         setContent {
             BaseAndroidProjectTheme {
                 Surface(

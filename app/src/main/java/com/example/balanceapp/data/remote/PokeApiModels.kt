@@ -15,7 +15,8 @@
     data class PokemonItem(
         val id: Int, // ID del Pokémon (extraído desde la URL)
         val name: String, // Nombre del pokemon
-        val imageUrl: String // URL a la imagen del respectivo pokemon en la API
+    val imageUrl: String, // URL a la imagen del respectivo pokemon en la API
+    val types: List<String> = emptyList() // Tipos del Pokémon para filtros (ej: Fuego, Agua)
     )
 
     // Descripción de pokemones
@@ -53,5 +54,4 @@
         val types: List<String>, // Nombres limpios de tipos
         val stats: List<Pair<String, Int>> // Lista (nombreStat, valor)
     )
-
 

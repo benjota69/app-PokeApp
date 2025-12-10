@@ -1,6 +1,8 @@
 package com.example.balanceapp.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,12 +13,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -37,24 +45,45 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.rememberScrollState
 import coil.compose.AsyncImage
+import com.example.balanceapp.data.remote.PokemonItem
 // Pantalla PRINCIPAL de la Pokédex: lista de Pokémon + detalle en diálogo.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PokemonListScreen(
     onBack: () -> Unit,
+    onLogout: () -> Unit,
+    onOpenProfile: () -> Unit,
     viewModel: PokemonListViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 ) {
     // Cada vez que cambia, la UI se recompone.
     val estado by viewModel.estado.collectAsState()
-    // Estados de búsqueda en la propia pantalla.
+
+    // Estados de búsqueda y filtros en la propia pantalla.
     var buscando by remember { mutableStateOf(false) } // para mostrar/ocultar el buscador
     var consulta by remember { mutableStateOf("") }
+    var tipoSeleccionado by remember { mutableStateOf<String?>(null) }
 
-    // Lista de pokémon a mostrar, filtrada según la consulta.
-    val itemsParaMostrar = remember(estado.pokemones, consulta) {
-        if (consulta.isBlank()) estado.pokemones else estado.pokemones.filter { it.name.contains(consulta, true) }
+    // Lista de tipos disponibles para filtros (derivados de la data)
+    val todosLosTipos = remember(estado.pokemones) {
+        estado.pokemones.flatMap { it.types }.distinct().sorted()
+    }
+
+    // Lista de pokémon a mostrar, filtrada según la consulta y el tipo seleccionado.
+    val itemsParaMostrar = remember(estado.pokemones, consulta, tipoSeleccionado) {
+        estado.pokemones
+            .filter { item ->
+                consulta.isBlank() || item.name.contains(consulta, ignoreCase = true)
+            }
+            .filter { item ->
+                tipoSeleccionado == null || item.types.contains(tipoSeleccionado)
+            }
     }
 
     Scaffold(
@@ -62,6 +91,20 @@ fun PokemonListScreen(
             TopAppBar(
                 title = { Text("Pokedex") },
                 actions = {
+                    // Botón de perfil
+                    IconButton(onClick = onOpenProfile) {
+                        Icon(
+                            imageVector = Icons.Filled.Person,
+                            contentDescription = "Perfil"
+                        )
+                    }
+                    // Botón para cerrar sesión
+                    IconButton(onClick = onLogout) {
+                        Icon(
+                            imageVector = Icons.Filled.Logout,
+                            contentDescription = "Cerrar sesión"
+                        )
+                    }
                     // Icono de búsqueda en la barra superior.
                     IconButton(onClick = { buscando = !buscando }) {
                         Icon(imageVector = Icons.Filled.Search, contentDescription = "Buscar")
@@ -83,6 +126,52 @@ fun PokemonListScreen(
                     placeholder = { Text("Buscar Pokémon...") }
                 )
             }
+            // Filtros por tipo de Pokémon
+            if (todosLosTipos.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val selectedBorder = AssistChipDefaults.assistChipBorder(
+                        borderColor = Color(0xFF430000),
+                        borderWidth = 2.dp
+                    )
+                    val allSelected = tipoSeleccionado == null
+                    AssistChip(
+                        onClick = { tipoSeleccionado = null },
+                        label = { Text("Todos") },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = if (allSelected)
+                                Color(0xFF430000).copy(alpha = 0.15f)
+                            else
+                                Color.Transparent,
+                            labelColor = MaterialTheme.colorScheme.onBackground
+                        ),
+                        border = if (allSelected) selectedBorder else null
+                    )
+                    todosLosTipos.forEach { tipo ->
+                        val isSelected = tipoSeleccionado == tipo
+                        AssistChip(
+                            onClick = {
+                                tipoSeleccionado =
+                                    if (isSelected) null else tipo
+                            },
+                            label = { Text(tipo) },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = if (isSelected)
+                                    Color(0xFF430000).copy(alpha = 0.15f)
+                                else
+                                    Color.Transparent,
+                                labelColor = MaterialTheme.colorScheme.onBackground
+                            ),
+                            border = if (isSelected) selectedBorder else null
+                        )
+                    }
+                }
+            }
             // Distintos estados de la pantalla
             when {
                 // Modo cargando: muestra el spinner al centro.
@@ -97,39 +186,19 @@ fun PokemonListScreen(
                     contentAlignment = Alignment.Center
                 ) { Text(estado.error ?: "Error") }
 
-                // estado normal mostrar la lista de pokemon
-                else -> LazyColumn(
+                // estado normal: mostrar la lista de pokémon en una cuadrícula de cards
+                else -> LazyVerticalGrid(
                     modifier = Modifier.fillMaxSize(),
+                    columns = GridCells.Adaptive(minSize = 140.dp),
                     contentPadding = PaddingValues(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // items() recorre la lista de Pokémon y dibuja cada fila
                     items(itemsParaMostrar) { item ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp)
-                                .clickable {
-                                    // Al hacer clic en un Pokémon, pedimos el detalle al ViewModel
-                                    viewModel.cargarDetalle(item.id) },
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // imagen del pokemon
-                            AsyncImage(
-                                model = item.imageUrl,
-                                contentDescription = item.name,
-                                modifier = Modifier.height(56.dp),
-                                contentScale = ContentScale.Fit
-                            )
-                            // Un pequeño espacio entre imagen y texto
-                            Spacer(modifier = Modifier.height(0.dp).weight(0.05f))
-
-                            // Texto con id y nombre del Pokémon.
-                            Text(
-                                text = "${item.id}. ${item.name}",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                        }
+                        PokemonCard(
+                            item = item,
+                            onClick = { viewModel.cargarDetalle(item.id) }
+                        )
                     }
                 }
             }
@@ -178,6 +247,60 @@ fun PokemonListScreen(
                     }
                 }
             )
+        }
+    }
+}
+
+@Composable
+private fun PokemonCard(
+    item: PokemonItem,
+    onClick: () -> Unit,
+) {
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier.clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF3B0000), // rojo muy oscuro arriba
+                            Color(0xFF7B1111)  // rojo más vivo abajo
+                        )
+                    )
+                )
+                .padding(12.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Imagen del Pokémon destacada
+                AsyncImage(
+                    model = item.imageUrl,
+                    contentDescription = item.name,
+                    modifier = Modifier
+                        .height(96.dp),
+                    contentScale = ContentScale.Fit
+                )
+
+                // ID estilizado
+                Text(
+                    text = "#${item.id.toString().padStart(3, '0')}",
+                    color = Color.White.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.labelSmall
+                )
+
+                // Nombre con tipografía más grande y en blanco
+                Text(
+                    text = item.name.replaceFirstChar { it.titlecase() },
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }

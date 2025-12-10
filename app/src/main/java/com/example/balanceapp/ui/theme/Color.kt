@@ -6,7 +6,8 @@ import androidx.compose.ui.graphics.Color
 // primary -> Rojo Poké, secondary -> Amarillo, tertiary -> Azul
 
 // Tonos para tema oscuro (80)
-val Purple80 = Color(0xFFFFB4A9)      // Rojo claro para dark
+// Usamos un rojo oscuro para status bar y app bar en tema oscuro
+val Purple80 = Color(0xFF430000)      // Rojo oscuro para dark
 val PurpleGrey80 = Color(0xFFFFE08A)   // Amarillo claro para dark
 val Pink80 = Color(0xFFA6C8FF)         // Azul claro para dark
 

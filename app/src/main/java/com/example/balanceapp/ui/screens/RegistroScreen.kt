@@ -7,10 +7,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,7 +35,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import com.example.balanceapp.data.CredencialesManager
+import androidx.compose.ui.graphics.Color
+import com.google.firebase.auth.FirebaseAuth
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,6 +51,10 @@ fun RegistroScreen(
     var mostrarClave by remember { mutableStateOf(false) }
     var mostrarConfirmarClave by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var cargando by remember { mutableStateOf(false) }
+
+    // Instancia de FirebaseAuth que usaremos para registrar al usuario
+    val auth = remember { FirebaseAuth.getInstance() }
 
     // misma validación que en login
     fun validarEmail(email: String): Boolean {
@@ -64,6 +71,7 @@ fun RegistroScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
                 .padding(padding)
                 .padding(24.dp),
             verticalArrangement = Arrangement.Center,
@@ -136,31 +144,51 @@ fun RegistroScreen(
             Spacer(Modifier.height(20.dp))
             // botón de registrarse
             Button(
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = Color.White
+                ),
                 onClick = {
                     // Validaciones básicas antes de crear el usuario.
                     when {
                         email.isBlank() -> error = "El email es requerido"
                         !validarEmail(email) -> error = "El email no es válido"
-                        CredencialesManager.existeEmail(email) -> error = "Este email ya está registrado"
                         clave.isBlank() -> error = "La contraseña es requerida"
                         !validarClave(clave) -> error = "La contraseña debe tener al menos 6 caracteres"
                         confirmarClave.isBlank() -> error = "Confirma tu contraseña"
                         clave != confirmarClave -> error = "Las contraseñas no coinciden"
                         else -> {
-                            // si todo esta ok se registra al usuario en el manager
-                            CredencialesManager.registrar(email, clave)
+                            cargando = true
+                            error = null
+                            // Si todo está ok, intentamos registrar al usuario en Firebase
+                            auth.createUserWithEmailAndPassword(email, clave)
+                                .addOnCompleteListener { task ->
+                                    cargando = false
+                                    if (task.isSuccessful) {
+                                        // Registro OK, pasamos a la siguiente pantalla
                             onRegistroExitoso()
+                                    } else {
+                                        // Mostramos un mensaje de error amigable
+                                        error = task.exception?.localizedMessage
+                                            ?: "No se pudo crear la cuenta. Intenta nuevamente."
+                                    }
+                                }
                         }
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Registrarse")
+                Text(if (cargando) "Registrando..." else "Registrarse")
             }
 
             Spacer(Modifier.height(12.dp))
             // botón de volver al login
-            TextButton(onClick = onVolverALogin) {
+            TextButton(
+                onClick = onVolverALogin,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
                 Text("¿Ya tienes cuenta? Inicia sesión")
             }
         }

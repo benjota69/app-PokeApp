@@ -7,6 +7,9 @@ package com.example.balanceapp.data
 import com.example.balanceapp.data.remote.PokeApiService
 import com.example.balanceapp.data.remote.PokemonDetail
 import com.example.balanceapp.data.remote.PokemonItem
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 
 // Se comunica con PokeApiService y adapta los datos para la app
 class PokemonRepository(
@@ -45,11 +48,13 @@ class PokemonRepository(
         else -> nombreApi.replace('-', ' ').replaceFirstChar { it.titlecase() }
     }
 
-    // devuelve una lista para la interfaz, con id, nombre e imagen de cada Pokémon.
-    suspend fun obtenerListaPokemon(limit: Int = 100): List<PokemonItem> {
+    // devuelve una lista para la interfaz, con id, nombre, imagen y tipos de cada Pokémon.
+    // Para no hacer la app lenta, limitamos la cantidad y pedimos los tipos en paralelo.
+    suspend fun obtenerListaPokemon(limit: Int = 60): List<PokemonItem> = coroutineScope {
         val response = api.getPokemonList(limit = limit, offset = 0)
-        return response.results.mapNotNull { r ->
-            // Extrae el ID desde la URL (Por ejemplo .../pokemon/6/)
+
+        // Primero armamos una lista básica con id, nombre e imagen
+        val baseList = response.results.mapNotNull { r ->
             val id = r.url.trimEnd('/').substringAfterLast('/').toIntOrNull()
             id?.let {
                 PokemonItem(
@@ -59,6 +64,21 @@ class PokemonRepository(
                 )
             }
         }
+
+        // Luego, para cada Pokémon pedimos el detalle en paralelo para obtener sus tipos
+        baseList.map { item ->
+            async {
+                try {
+                    val detalle = api.getPokemonDetail(item.id)
+                    item.copy(
+                        types = detalle.types.map { slot -> traducirTipo(slot.type.name) }
+                    )
+                } catch (_: Throwable) {
+                    // Si falla el detalle, devolvemos al menos el item básico sin tipos
+                    item
+                }
+            }
+        }.awaitAll()
     }
 
     // Obtiene el DETALLE y lo adapta para la UI
